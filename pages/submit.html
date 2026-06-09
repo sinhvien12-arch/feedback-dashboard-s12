@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Submit Feedback</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="../shared/styles.css" />
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <script src="../shared/navbar.js"></script>
+
+  <main class="max-w-xl mx-auto mt-10 px-4">
+    <div class="bg-white rounded-2xl shadow p-8">
+      <h1 class="text-2xl font-bold text-gray-800 mb-6">Submit Your Feedback</h1>
+
+      <form id="feedbackForm" novalidate class="space-y-5">
+
+        <!-- Name -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1" for="name">
+            Name <span class="text-gray-400 font-normal">(optional)</span>
+          </label>
+          <input
+            id="name"
+            type="text"
+            placeholder="Your name"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+          />
+        </div>
+
+        <!-- Location -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1" for="location">
+            Location <span class="text-red-500">*</span>
+          </label>
+          <select
+            id="location"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
+          >
+            <option value="">— Select location —</option>
+            <option value="District 1">District 1</option>
+            <option value="District 3">District 3</option>
+            <option value="Thao Dien">Thao Dien</option>
+          </select>
+          <p id="locationError" class="text-red-500 text-xs mt-1 hidden">Please select a location.</p>
+        </div>
+
+        <!-- Rating -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            Rating <span class="text-red-500">*</span>
+          </label>
+          <div id="starRow" class="flex gap-2">
+            <!-- Stars rendered by JS -->
+          </div>
+          <input type="hidden" id="rating" value="" />
+          <p id="ratingError" class="text-red-500 text-xs mt-1 hidden">Please select a rating.</p>
+        </div>
+
+        <!-- Comment -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1" for="comment">
+            Comment <span class="text-red-500">*</span>
+          </label>
+          <textarea
+            id="comment"
+            rows="4"
+            placeholder="Share your experience…"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none"
+          ></textarea>
+          <p id="commentError" class="text-red-500 text-xs mt-1 hidden">Comment is required.</p>
+        </div>
+
+        <!-- Submit -->
+        <button
+          type="submit"
+          class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 rounded-lg transition-colors text-sm"
+        >
+          Submit Feedback
+        </button>
+      </form>
+
+      <!-- Success message -->
+      <div id="successMsg" class="hidden mt-5 bg-green-50 border border-green-300 text-green-700 rounded-lg px-4 py-3 text-sm text-center">
+        ✅ Thank you! Your feedback has been submitted successfully.
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // --- Star rating widget ---
+    const starRow = document.getElementById('starRow');
+    const ratingInput = document.getElementById('rating');
+    let currentRating = 0;
+
+    function renderStars(hovered) {
+      const display = hovered || currentRating;
+      starRow.innerHTML = '';
+      for (let i = 1; i <= 5; i++) {
+        const star = document.createElement('button');
+        star.type = 'button';  // prevents accidental form submit
+        star.textContent = i <= display ? '★' : '☆';
+        star.className = `text-3xl leading-none transition-colors ${i <= display ? 'text-yellow-400' : 'text-gray-300'} hover:text-yellow-400`;
+        star.dataset.value = i;
+
+        star.addEventListener('mouseover', () => renderStars(i));
+        // mouseleave moved to container (starRow) so re-renders don't cause event duplication
+        star.addEventListener('click', (e) => {
+          e.stopPropagation();
+          currentRating = i;
+          ratingInput.value = String(i);
+          renderStars(0);
+          document.getElementById('ratingError').classList.add('hidden');
+        });
+        starRow.appendChild(star);
+      }
+    }
+
+    // Single container-level mouseleave — survives innerHTML re-renders
+    starRow.addEventListener('mouseleave', () => renderStars(0));
+
+    renderStars(0);
+
+    // --- Form submit ---
+    document.getElementById('feedbackForm').addEventListener('submit', function (e) {
+      e.preventDefault();
+
+      const name = document.getElementById('name').value.trim();
+      const location = document.getElementById('location').value;
+      const rating = currentRating;   // use JS variable — ratingInput.value is a derived string
+      const comment = document.getElementById('comment').value.trim();
+
+      let valid = true;
+
+      // Validate location
+      if (!location) {
+        document.getElementById('locationError').classList.remove('hidden');
+        valid = false;
+      } else {
+        document.getElementById('locationError').classList.add('hidden');
+      }
+
+      // Validate rating — check integer directly, not the hidden input string
+      if (rating === 0) {
+        document.getElementById('ratingError').classList.remove('hidden');
+        valid = false;
+      } else {
+        document.getElementById('ratingError').classList.add('hidden');
+      }
+
+      // Validate comment
+      if (!comment) {
+        document.getElementById('commentError').classList.remove('hidden');
+        valid = false;
+      } else {
+        document.getElementById('commentError').classList.add('hidden');
+      }
+
+      if (!valid) return;
+
+      // Build entry
+      const entry = {
+        date: new Date().toISOString(),
+        name: name || 'Anonymous',
+        location,
+        rating: parseInt(rating, 10),
+        comment,
+      };
+
+      // Append to existing array in localStorage
+      const existing = JSON.parse(localStorage.getItem('feedbackEntries') || '[]');
+      existing.push(entry);
+      localStorage.setItem('feedbackEntries', JSON.stringify(existing));
+
+      // Reset form
+      this.reset();
+      currentRating = 0;
+      ratingInput.value = '';
+      renderStars(0);
+
+      // Show success
+      const msg = document.getElementById('successMsg');
+      msg.classList.remove('hidden');
+      setTimeout(() => msg.classList.add('hidden'), 4000);
+    });
+  </script>
+</body>
+</html>
