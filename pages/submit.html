@@ -16,7 +16,6 @@
 
       <form id="feedbackForm" novalidate class="space-y-5">
 
-        <!-- Name -->
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1" for="name">
             Name <span class="text-gray-400 font-normal">(optional)</span>
@@ -29,7 +28,6 @@
           />
         </div>
 
-        <!-- Location -->
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1" for="location">
             Location <span class="text-red-500">*</span>
@@ -46,19 +44,24 @@
           <p id="locationError" class="text-red-500 text-xs mt-1 hidden">Please select a location.</p>
         </div>
 
-        <!-- Rating -->
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">
             Rating <span class="text-red-500">*</span>
           </label>
-          <div id="starRow" class="flex gap-2">
-            <!-- Stars rendered by JS -->
+          <div id="starRowContainer" class="p-3 bg-gray-50 rounded-xl transition-all duration-300 inline-flex flex-col gap-1 w-full border border-gray-100">
+            <div id="starRow" class="flex gap-2">
+              <button type="button" class="star-btn text-3xl leading-none transition-colors" style="color: #d1d5db;">☆</button>
+              <button type="button" class="star-btn text-3xl leading-none transition-colors" style="color: #d1d5db;">☆</button>
+              <button type="button" class="star-btn text-3xl leading-none transition-colors" style="color: #d1d5db;">☆</button>
+              <button type="button" class="star-btn text-3xl leading-none transition-colors" style="color: #d1d5db;">☆</button>
+              <button type="button" class="star-btn text-3xl leading-none transition-colors" style="color: #d1d5db;">☆</button>
+            </div>
+            <p id="sentimentText" class="text-xs font-medium transition-colors mt-1" style="color: #6b7280;">Chưa chọn đánh giá</p>
           </div>
           <input type="hidden" id="rating" value="" />
           <p id="ratingError" class="text-red-500 text-xs mt-1 hidden">Please select a rating.</p>
         </div>
 
-        <!-- Comment -->
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1" for="comment">
             Comment <span class="text-red-500">*</span>
@@ -72,7 +75,6 @@
           <p id="commentError" class="text-red-500 text-xs mt-1 hidden">Comment is required.</p>
         </div>
 
-        <!-- Submit -->
         <button
           type="submit"
           class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 rounded-lg transition-colors text-sm"
@@ -81,7 +83,6 @@
         </button>
       </form>
 
-      <!-- Success message -->
       <div id="successMsg" class="hidden mt-5 bg-green-50 border border-green-300 text-green-700 rounded-lg px-4 py-3 text-sm text-center">
         ✅ Thank you! Your feedback has been submitted successfully.
       </div>
@@ -89,51 +90,94 @@
   </main>
 
   <script>
-    // --- Star rating widget ---
     const starRow = document.getElementById('starRow');
+    const container = document.getElementById('starRowContainer');
+    const sentimentText = document.getElementById('sentimentText');
+    const stars = Array.from(document.querySelectorAll('.star-btn'));
     const ratingInput = document.getElementById('rating');
     let currentRating = 0;
 
-    function renderStars(hovered) {
-      const display = hovered || currentRating;
-      starRow.innerHTML = '';
-      for (let i = 1; i <= 5; i++) {
-        const star = document.createElement('button');
-        star.type = 'button';  // prevents accidental form submit
-        star.textContent = i <= display ? '★' : '☆';
-        star.className = `text-3xl leading-none transition-colors ${i <= display ? 'text-yellow-400' : 'text-gray-300'} hover:text-yellow-400`;
-        star.dataset.value = i;
+    // Hàm cập nhật màu sắc ngôi sao VÀ màu nền cảm xúc (Sentiment Color) dựa trên số sao
+    function updateStarsAndSentiment(ratingValue) {
+      // 1. Xác định màu sắc chủ đạo của cảm xúc (Màu sao, màu chữ, màu nền)
+      let starColor = '#d1d5db'; // Mặc định xám
+      let bgColor = '#f9fafb';   // Mặc định xám nhạt bg-gray-50
+      let textColor = '#6b7280'; // Mặc định text-gray-500
+      let statusLabel = 'Chưa chọn đánh giá';
 
-        star.addEventListener('mouseover', () => renderStars(i));
-        // mouseleave moved to container (starRow) so re-renders don't cause event duplication
-        star.addEventListener('click', (e) => {
-          e.stopPropagation();
-          currentRating = i;
-          ratingInput.value = String(i);
-          renderStars(0);
-          document.getElementById('ratingError').classList.add('hidden');
-        });
-        starRow.appendChild(star);
+      if (ratingValue > 0) {
+        if (ratingValue <= 2) {
+          starColor = '#dc2626';  // Sao màu đỏ (red-600)
+          bgColor = '#fee2e2';    // Nền đỏ nhạt (bg-red-100)
+          textColor = '#450a0a';  // Chữ đỏ đậm tương phản (text-red-950)
+          statusLabel = `Tiêu cực (${ratingValue} sao)`;
+        } else if (ratingValue === 3) {
+          starColor = '#ca8a04';  // Sao màu vàng sậm (yellow-600)
+          bgColor = '#fef9c3';    // Nền vàng nhạt (bg-yellow-100)
+          textColor = '#422006';  // Chữ nâu/vàng đậm (text-yellow-950)
+          statusLabel = `Trung lập (${ratingValue} sao)`;
+        } else {
+          starColor = '#16a34a';  // Sao màu xanh lá (green-600)
+          bgColor = '#dcfce7';    // Nền xanh nhạt (bg-green-100)
+          textColor = '#052e16';  // Chữ xanh lá đậm (text-green-950)
+          statusLabel = `Tích cực (${ratingValue} sao)`;
+        }
       }
+
+      // 2. Cập nhật màu nền và chữ của toàn bộ khung chứa
+      container.style.backgroundColor = bgColor;
+      sentimentText.style.color = textColor;
+      sentimentText.textContent = statusLabel;
+
+      // 3. Đổi ký tự và màu sắc từng ngôi sao theo mốc tương ứng
+      stars.forEach((star, index) => {
+        if (index < ratingValue) {
+          star.textContent = '★';
+          star.style.color = starColor; // Đồng bộ màu sắc sao theo nhóm cảm xúc
+        } else {
+          star.textContent = '☆';
+          star.style.color = '#d1d5db'; // Ngôi sao chưa chọn giữ màu xám nhạt
+        }
+      });
     }
 
-    // Single container-level mouseleave — survives innerHTML re-renders
-    starRow.addEventListener('mouseleave', () => renderStars(0));
+    // Gán sự kiện di chuột và click lên các nút sao cố định
+    stars.forEach((star, index) => {
+      const starValue = index + 1;
 
-    renderStars(0);
+      // Khi di chuột qua ngôi sao
+      star.addEventListener('mouseover', () => {
+        updateStarsAndSentiment(starValue);
+      });
 
-    // --- Form submit ---
+      // Khi click chuột chọn ngôi sao
+      star.addEventListener('click', (e) => {
+        e.preventDefault();
+        currentRating = starValue;
+        ratingInput.value = String(starValue);
+        updateStarsAndSentiment(currentRating); // Khóa cứng hiển thị màu sắc cảm xúc
+        document.getElementById('ratingError').classList.add('hidden'); // Ẩn lỗi đỏ lập tức
+      });
+    });
+
+    // Khi di chuột ra khỏi vùng chứa bảng sao, trả về trạng thái cảm xúc đã click chọn
+    container.addEventListener('mouseleave', () => {
+      updateStarsAndSentiment(currentRating);
+    });
+
+
+    // --- Thực hiện gửi Form ---
     document.getElementById('feedbackForm').addEventListener('submit', function (e) {
       e.preventDefault();
 
       const name = document.getElementById('name').value.trim();
       const location = document.getElementById('location').value;
-      const rating = currentRating;   // use JS variable — ratingInput.value is a derived string
+      const rating = currentRating;   
       const comment = document.getElementById('comment').value.trim();
 
       let valid = true;
 
-      // Validate location
+      // Kiểm tra ô địa điểm
       if (!location) {
         document.getElementById('locationError').classList.remove('hidden');
         valid = false;
@@ -141,7 +185,7 @@
         document.getElementById('locationError').classList.add('hidden');
       }
 
-      // Validate rating — check integer directly, not the hidden input string
+      // Kiểm tra số sao chọn
       if (rating === 0) {
         document.getElementById('ratingError').classList.remove('hidden');
         valid = false;
@@ -149,7 +193,7 @@
         document.getElementById('ratingError').classList.add('hidden');
       }
 
-      // Validate comment
+      // Kiểm tra bình luận
       if (!comment) {
         document.getElementById('commentError').classList.remove('hidden');
         valid = false;
@@ -159,7 +203,7 @@
 
       if (!valid) return;
 
-      // Build entry
+      // Tạo object dữ liệu
       const entry = {
         date: new Date().toISOString(),
         name: name || 'Anonymous',
@@ -168,18 +212,18 @@
         comment,
       };
 
-      // Append to existing array in localStorage
+      // Đẩy mảng dữ liệu vào localStorage
       const existing = JSON.parse(localStorage.getItem('feedbackEntries') || '[]');
       existing.push(entry);
       localStorage.setItem('feedbackEntries', JSON.stringify(existing));
 
-      // Reset form
+      // Reset form sạch sẽ sau khi thành công
       this.reset();
       currentRating = 0;
       ratingInput.value = '';
-      renderStars(0);
+      updateStarsAndSentiment(0); // Trả toàn bộ màu nền và sao về mặc định ban đầu
 
-      // Show success
+      // Hiện hộp thông báo xanh lá thành công
       const msg = document.getElementById('successMsg');
       msg.classList.remove('hidden');
       setTimeout(() => msg.classList.add('hidden'), 4000);
