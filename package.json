@@ -1,0 +1,29 @@
+{
+  "name": "feedback-dashboard-s12",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "build:css": "tailwindcss -i ./shared/input.css -o ./shared/tailwind.css --minify",
+    "watch:css": "tailwindcss -i ./shared/input.css -o ./shared/tailwind.css --watch"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sinhvien12-arch/feedback-dashboard-s12.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/sinhvien12-arch/feedback-dashboard-s12/issues"
+  },
+  "homepage": "https://github.com/sinhvien12-arch/feedback-dashboard-s12#readme",
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.3.0",
+    "tailwindcss": "^4.3.0"
+  }
+}
