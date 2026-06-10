@@ -86,8 +86,15 @@
     </div>
   </main>
 
-  <script>
-    const STORAGE_KEY = 'feedbackEntries';
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+    import { getFirestore, collection, onSnapshot, query, orderBy } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+    import { firebaseConfig } from '../shared/firebase-config.js';
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    let allEntries = [];
 
     // --- Helpers ---
     function formatDate(isoStr) {
@@ -110,14 +117,14 @@
       return 'bg-green-100 text-green-950';
     }
 
-    // --- Load & filter ---
-    function getEntries() {
-      return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
     }
 
-    // Convert a UTC ISO string to the local calendar date "YYYY-MM-DD".
-    // Using getFullYear/getMonth/getDate ensures GMT+7 (or any local TZ) is applied,
-    // so comparing this string to a <input type="date"> value is always timezone-safe.
     function toLocalDateStr(isoStr) {
       const d = new Date(isoStr);
       const yyyy = d.getFullYear();
@@ -129,13 +136,12 @@
     function applyFilters(entries) {
       const loc = document.getElementById('filterLocation').value;
       const minRating = parseInt(document.getElementById('filterMinRating').value, 10);
-      const fromVal = document.getElementById('filterFrom').value;  // "YYYY-MM-DD" or ""
-      const toVal = document.getElementById('filterTo').value;      // "YYYY-MM-DD" or ""
+      const fromVal = document.getElementById('filterFrom').value;
+      const toVal = document.getElementById('filterTo').value;
 
       return entries.filter(e => {
         if (loc && e.location !== loc) return false;
         if (e.rating < minRating) return false;
-        // Compare local date strings — avoids UTC vs GMT+7 offset bugs entirely
         const entryLocalDate = toLocalDateStr(e.date);
         if (fromVal && entryLocalDate < fromVal) return false;
         if (toVal && entryLocalDate > toVal) return false;
@@ -144,27 +150,21 @@
     }
 
     function render() {
-      const all = getEntries().sort((a, b) => new Date(b.date) - new Date(a.date));
-      const filtered = applyFilters(all);
+      const sorted = [...allEntries].sort((a, b) => new Date(b.date) - new Date(a.date));
+      const filtered = applyFilters(sorted);
 
       const tbody = document.getElementById('tableBody');
       const countLine = document.getElementById('countLine');
 
-      countLine.textContent = `Showing ${filtered.length} of ${all.length} feedbacks`;
+      countLine.textContent = `Showing ${filtered.length} of ${sorted.length} feedbacks`;
 
-      if (all.length === 0) {
-        tbody.innerHTML = `
-          <tr>
-            <td colspan="5" class="px-4 py-8 text-center text-gray-400 italic">No feedback yet</td>
-          </tr>`;
+      if (sorted.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-8 text-center text-gray-400 italic">No feedback yet</td></tr>`;
         return;
       }
 
       if (filtered.length === 0) {
-        tbody.innerHTML = `
-          <tr>
-            <td colspan="5" class="px-4 py-8 text-center text-gray-400 italic">No feedback matches your filters</td>
-          </tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-8 text-center text-gray-400 italic">No feedback matches your filters</td></tr>`;
         return;
       }
 
@@ -179,18 +179,10 @@
       `).join('');
     }
 
-    function escapeHtml(str) {
-      return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
-    }
-
-    // --- Export CSV (Part 7) ---
+    // --- Export CSV ---
     document.getElementById('exportBtn').addEventListener('click', function () {
-      const all = getEntries().sort((a, b) => new Date(b.date) - new Date(a.date));
-      const filtered = applyFilters(all);
+      const sorted = [...allEntries].sort((a, b) => new Date(b.date) - new Date(a.date));
+      const filtered = applyFilters(sorted);
 
       if (filtered.length === 0) {
         alert('Nothing to export');
@@ -198,13 +190,12 @@
       }
 
       const header = ['Date', 'Location', 'Rating', 'Name', 'Comment'];
-
       const rows = filtered.map(e => [
         formatDate(e.date),
         e.location,
         e.rating,
         e.name,
-        `"${e.comment.replace(/"/g, '""')}"`,   // wrap comment in quotes, escape inner quotes
+        `"${e.comment.replace(/"/g, '""')}"`,
       ]);
 
       const csvContent = '﻿' + [header, ...rows].map(r => r.join(',')).join('\r\n');
@@ -231,8 +222,20 @@
       document.getElementById(id).addEventListener('change', render);
     });
 
-    // --- Initial render ---
-    render();
+    // --- Real-time listener ---
+    const countLine = document.getElementById('countLine');
+    countLine.textContent = 'Loading…';
+
+    onSnapshot(
+      query(collection(db, 'feedbackEntries'), orderBy('date', 'desc')),
+      (snapshot) => {
+        allEntries = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        render();
+      },
+      (err) => {
+        countLine.textContent = 'Failed to load data: ' + err.message;
+      }
+    );
   </script>
 </body>
 </html>

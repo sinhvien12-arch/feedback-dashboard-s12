@@ -89,95 +89,84 @@
     </div>
   </main>
 
-  <script>
-    const starRow = document.getElementById('starRow');
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+    import { getFirestore, collection, addDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+    import { firebaseConfig } from '../shared/firebase-config.js';
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
     const container = document.getElementById('starRowContainer');
     const sentimentText = document.getElementById('sentimentText');
     const stars = Array.from(document.querySelectorAll('.star-btn'));
     const ratingInput = document.getElementById('rating');
     let currentRating = 0;
 
-    // Hàm cập nhật màu sắc ngôi sao VÀ màu nền cảm xúc (Sentiment Color) dựa trên số sao
     function updateStarsAndSentiment(ratingValue) {
-      // 1. Xác định màu sắc chủ đạo của cảm xúc (Màu sao, màu chữ, màu nền)
-      let starColor = '#d1d5db'; // Mặc định xám
-      let bgColor = '#f9fafb';   // Mặc định xám nhạt bg-gray-50
-      let textColor = '#6b7280'; // Mặc định text-gray-500
+      let starColor = '#d1d5db';
+      let bgColor = '#f9fafb';
+      let textColor = '#6b7280';
       let statusLabel = 'Chưa chọn đánh giá';
 
       if (ratingValue > 0) {
         if (ratingValue <= 2) {
-          starColor = '#dc2626';  // Sao màu đỏ (red-600)
-          bgColor = '#fee2e2';    // Nền đỏ nhạt (bg-red-100)
-          textColor = '#450a0a';  // Chữ đỏ đậm tương phản (text-red-950)
+          starColor = '#dc2626';
+          bgColor = '#fee2e2';
+          textColor = '#450a0a';
           statusLabel = `Tiêu cực (${ratingValue} sao)`;
         } else if (ratingValue === 3) {
-          starColor = '#ca8a04';  // Sao màu vàng sậm (yellow-600)
-          bgColor = '#fef9c3';    // Nền vàng nhạt (bg-yellow-100)
-          textColor = '#422006';  // Chữ nâu/vàng đậm (text-yellow-950)
+          starColor = '#ca8a04';
+          bgColor = '#fef9c3';
+          textColor = '#422006';
           statusLabel = `Trung lập (${ratingValue} sao)`;
         } else {
-          starColor = '#16a34a';  // Sao màu xanh lá (green-600)
-          bgColor = '#dcfce7';    // Nền xanh nhạt (bg-green-100)
-          textColor = '#052e16';  // Chữ xanh lá đậm (text-green-950)
+          starColor = '#16a34a';
+          bgColor = '#dcfce7';
+          textColor = '#052e16';
           statusLabel = `Tích cực (${ratingValue} sao)`;
         }
       }
 
-      // 2. Cập nhật màu nền và chữ của toàn bộ khung chứa
       container.style.backgroundColor = bgColor;
       sentimentText.style.color = textColor;
       sentimentText.textContent = statusLabel;
 
-      // 3. Đổi ký tự và màu sắc từng ngôi sao theo mốc tương ứng
       stars.forEach((star, index) => {
         if (index < ratingValue) {
           star.textContent = '★';
-          star.style.color = starColor; // Đồng bộ màu sắc sao theo nhóm cảm xúc
+          star.style.color = starColor;
         } else {
           star.textContent = '☆';
-          star.style.color = '#d1d5db'; // Ngôi sao chưa chọn giữ màu xám nhạt
+          star.style.color = '#d1d5db';
         }
       });
     }
 
-    // Gán sự kiện di chuột và click lên các nút sao cố định
     stars.forEach((star, index) => {
       const starValue = index + 1;
-
-      // Khi di chuột qua ngôi sao
-      star.addEventListener('mouseover', () => {
-        updateStarsAndSentiment(starValue);
-      });
-
-      // Khi click chuột chọn ngôi sao
+      star.addEventListener('mouseover', () => updateStarsAndSentiment(starValue));
       star.addEventListener('click', (e) => {
         e.preventDefault();
         currentRating = starValue;
         ratingInput.value = String(starValue);
-        updateStarsAndSentiment(currentRating); // Khóa cứng hiển thị màu sắc cảm xúc
-        document.getElementById('ratingError').classList.add('hidden'); // Ẩn lỗi đỏ lập tức
+        updateStarsAndSentiment(currentRating);
+        document.getElementById('ratingError').classList.add('hidden');
       });
     });
 
-    // Khi di chuột ra khỏi vùng chứa bảng sao, trả về trạng thái cảm xúc đã click chọn
-    container.addEventListener('mouseleave', () => {
-      updateStarsAndSentiment(currentRating);
-    });
+    container.addEventListener('mouseleave', () => updateStarsAndSentiment(currentRating));
 
-
-    // --- Thực hiện gửi Form ---
-    document.getElementById('feedbackForm').addEventListener('submit', function (e) {
+    document.getElementById('feedbackForm').addEventListener('submit', async function (e) {
       e.preventDefault();
 
       const name = document.getElementById('name').value.trim();
       const location = document.getElementById('location').value;
-      const rating = currentRating;   
+      const rating = currentRating;
       const comment = document.getElementById('comment').value.trim();
 
       let valid = true;
 
-      // Kiểm tra ô địa điểm
       if (!location) {
         document.getElementById('locationError').classList.remove('hidden');
         valid = false;
@@ -185,7 +174,6 @@
         document.getElementById('locationError').classList.add('hidden');
       }
 
-      // Kiểm tra số sao chọn
       if (rating === 0) {
         document.getElementById('ratingError').classList.remove('hidden');
         valid = false;
@@ -193,7 +181,6 @@
         document.getElementById('ratingError').classList.add('hidden');
       }
 
-      // Kiểm tra bình luận
       if (!comment) {
         document.getElementById('commentError').classList.remove('hidden');
         valid = false;
@@ -203,30 +190,33 @@
 
       if (!valid) return;
 
-      // Tạo object dữ liệu
-      const entry = {
-        date: new Date().toISOString(),
-        name: name || 'Anonymous',
-        location,
-        rating: parseInt(rating, 10),
-        comment,
-      };
+      const submitBtn = this.querySelector('button[type="submit"]');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Submitting…';
 
-      // Đẩy mảng dữ liệu vào localStorage
-      const existing = JSON.parse(localStorage.getItem('feedbackEntries') || '[]');
-      existing.push(entry);
-      localStorage.setItem('feedbackEntries', JSON.stringify(existing));
+      try {
+        await addDoc(collection(db, 'feedbackEntries'), {
+          date: new Date().toISOString(),
+          name: name || 'Anonymous',
+          location,
+          rating: parseInt(rating, 10),
+          comment,
+        });
 
-      // Reset form sạch sẽ sau khi thành công
-      this.reset();
-      currentRating = 0;
-      ratingInput.value = '';
-      updateStarsAndSentiment(0); // Trả toàn bộ màu nền và sao về mặc định ban đầu
+        this.reset();
+        currentRating = 0;
+        ratingInput.value = '';
+        updateStarsAndSentiment(0);
 
-      // Hiện hộp thông báo xanh lá thành công
-      const msg = document.getElementById('successMsg');
-      msg.classList.remove('hidden');
-      setTimeout(() => msg.classList.add('hidden'), 4000);
+        const msg = document.getElementById('successMsg');
+        msg.classList.remove('hidden');
+        setTimeout(() => msg.classList.add('hidden'), 4000);
+      } catch (err) {
+        alert('Failed to submit feedback. Please try again.\n' + err.message);
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Submit Feedback';
+      }
     });
   </script>
 </body>
