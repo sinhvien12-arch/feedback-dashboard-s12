@@ -42,7 +42,7 @@
         <p class="text-sm text-gray-500 mt-1">Admin Access &mdash; HSB University</p>
       </div>
 
-      <button id="googleSignInBtn"
+      <button id="loginBtn"
         class="w-full flex items-center justify-center gap-3 border border-gray-300 rounded-xl px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="20" height="20">
           <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
@@ -211,27 +211,51 @@
     provider.setCustomParameters({ hd: 'hsb.edu.vn' });
 
     var chartsReady = false;
+    var firestoreUnsub = null;
 
+    var AUTH_ERRORS = {
+      'auth/unauthorized-domain': '⚠️ Domain này chưa được cấp phép trong Firebase Console. Vào Authentication → Settings → Authorized domains và thêm domain hiện tại.',
+      'auth/operation-not-allowed': '⚠️ Google Sign-In chưa được bật. Vào Firebase Console → Authentication → Sign-in method → Google và kích hoạt.',
+      'auth/popup-blocked': '⚠️ Popup bị trình duyệt chặn. Hãy cho phép popup từ trang này và thử lại.',
+      'auth/cancelled-popup-request': null,
+      'auth/popup-closed-by-user': null,
+    };
+
+    function showAuthError(msg) {
+      var el = document.getElementById('authError');
+      el.textContent = msg;
+      el.classList.remove('hidden');
+    }
+
+    function clearAuthError() {
+      document.getElementById('authError').classList.add('hidden');
+    }
+
+    // ─── Auth state observer ──────────────────────────────────────────────────
     firebase.auth().onAuthStateChanged(function (user) {
+      // No user: show overlay, clear old error
       if (!user) {
+        clearAuthError();
         document.getElementById('loginOverlay').classList.remove('hidden');
         return;
       }
+
+      // User exists but wrong domain: show error, sign out immediately
       if (!user.email.endsWith('@hsb.edu.vn')) {
-        document.getElementById('authError').classList.remove('hidden');
+        showAuthError('⚠️ Truy cập bị từ chối. Email ' + user.email + ' không thuộc tổ chức @hsb.edu.vn.');
         firebase.auth().signOut();
         return;
       }
 
-      // Valid @hsb.edu.vn user — hide overlay, show dashboard
+      // Valid @hsb.edu.vn — unlock dashboard
       document.getElementById('loginOverlay').classList.add('hidden');
-      document.getElementById('authError').classList.add('hidden');
+      clearAuthError();
       document.getElementById('userEmail').textContent = user.email;
 
       if (!chartsReady) {
         chartsReady = true;
         initCharts();
-        db.collection('feedbackEntries')
+        firestoreUnsub = db.collection('feedbackEntries')
           .orderBy('date', 'desc')
           .onSnapshot(
             function (snapshot) {
@@ -242,25 +266,33 @@
             },
             function (err) {
               console.error('Firestore error:', err);
-              document.getElementById('countLine').textContent = 'Failed to load: ' + err.message;
+              document.getElementById('countLine').textContent = 'Lỗi tải dữ liệu: ' + err.message;
             }
           );
       }
     });
 
-    // Google Sign-In button
-    document.getElementById('googleSignInBtn').addEventListener('click', function () {
+    // ─── Login button ─────────────────────────────────────────────────────────
+    document.getElementById('loginBtn').addEventListener('click', function () {
       var btn = this;
       var originalHTML = btn.innerHTML;
+
       btn.disabled = true;
-      btn.innerHTML = '<span>Đang đăng nhập…</span>';
-      document.getElementById('authError').classList.add('hidden');
+      btn.innerHTML = '<span>Đang tải...</span>';
+      clearAuthError();
 
       firebase.auth().signInWithPopup(provider)
+        .then(function (result) {
+          // onAuthStateChanged handles domain check — nothing to do here
+        })
         .catch(function (err) {
-          if (err.code !== 'auth/popup-closed-by-user') {
-            document.getElementById('authError').textContent = '⚠️ Đăng nhập thất bại. Vui lòng thử lại.';
-            document.getElementById('authError').classList.remove('hidden');
+          var knownMsg = AUTH_ERRORS[err.code];
+          // null means silently ignore (user closed popup themselves)
+          if (knownMsg === undefined) {
+            // Unknown error: surface the code so it can be diagnosed
+            showAuthError('⚠️ Lỗi đăng nhập (' + err.code + '): ' + err.message);
+          } else if (knownMsg !== null) {
+            showAuthError(knownMsg);
           }
         })
         .finally(function () {
@@ -269,8 +301,9 @@
         });
     });
 
-    // Sign-out button
+    // ─── Sign-out button ──────────────────────────────────────────────────────
     document.getElementById('signOutBtn').addEventListener('click', function () {
+      if (firestoreUnsub) { firestoreUnsub(); firestoreUnsub = null; }
       chartsReady = false;
       allEntries = [];
       firebase.auth().signOut();
