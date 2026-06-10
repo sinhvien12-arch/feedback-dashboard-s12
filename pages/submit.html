@@ -6,6 +6,20 @@
   <title>Submit Feedback</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="../shared/styles.css" />
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script>
+    firebase.initializeApp({
+      apiKey: "AIzaSyC2yVRWas8VKMi37jrhYvTHPHmu0FXQ-OI",
+      authDomain: "group12-23ab1.firebaseapp.com",
+      projectId: "group12-23ab1",
+      storageBucket: "group12-23ab1.firebasestorage.app",
+      messagingSenderId: "863992441673",
+      appId: "1:863992441673:web:a13b2cbc0e2180e1594898",
+      measurementId: "G-LS927KG9CS",
+    });
+    const db = firebase.firestore();
+  </script>
 </head>
 <body class="bg-gray-50 min-h-screen">
   <script src="../shared/navbar.js"></script>
@@ -89,14 +103,7 @@
     </div>
   </main>
 
-  <script type="module">
-    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-    import { getFirestore, collection, addDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
-    import { firebaseConfig } from '../shared/firebase-config.js';
-
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-
+  <script>
     const container = document.getElementById('starRowContainer');
     const sentimentText = document.getElementById('sentimentText');
     const stars = Array.from(document.querySelectorAll('.star-btn'));
@@ -195,7 +202,7 @@
       submitBtn.textContent = 'Submitting…';
 
       try {
-        await addDoc(collection(db, 'feedbackEntries'), {
+        await db.collection('feedbackEntries').add({
           date: new Date().toISOString(),
           name: name || 'Anonymous',
           location,
@@ -212,7 +219,8 @@
         msg.classList.remove('hidden');
         setTimeout(() => msg.classList.add('hidden'), 4000);
       } catch (err) {
-        alert('Failed to submit feedback. Please try again.\n' + err.message);
+        console.error('Firestore error:', err);
+        alert('Failed to submit: ' + err.message);
       } finally {
         submitBtn.disabled = false;
         submitBtn.textContent = 'Submit Feedback';

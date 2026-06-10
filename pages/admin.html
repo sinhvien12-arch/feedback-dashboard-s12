@@ -6,6 +6,20 @@
   <title>Admin View</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="../shared/styles.css" />
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script>
+    firebase.initializeApp({
+      apiKey: "AIzaSyC2yVRWas8VKMi37jrhYvTHPHmu0FXQ-OI",
+      authDomain: "group12-23ab1.firebaseapp.com",
+      projectId: "group12-23ab1",
+      storageBucket: "group12-23ab1.firebasestorage.app",
+      messagingSenderId: "863992441673",
+      appId: "1:863992441673:web:a13b2cbc0e2180e1594898",
+      measurementId: "G-LS927KG9CS",
+    });
+    const db = firebase.firestore();
+  </script>
 </head>
 <body class="bg-gray-50 min-h-screen">
   <script src="../shared/navbar.js"></script>
@@ -25,7 +39,6 @@
     <div class="bg-white rounded-2xl shadow p-5 mb-6">
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 
-        <!-- Location filter -->
         <div>
           <label class="block text-xs font-medium text-gray-500 mb-1 uppercase tracking-wide">Location</label>
           <select id="filterLocation" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white">
@@ -36,7 +49,6 @@
           </select>
         </div>
 
-        <!-- Min rating filter -->
         <div>
           <label class="block text-xs font-medium text-gray-500 mb-1 uppercase tracking-wide">Min Rating</label>
           <select id="filterMinRating" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white">
@@ -48,13 +60,11 @@
           </select>
         </div>
 
-        <!-- From date -->
         <div>
           <label class="block text-xs font-medium text-gray-500 mb-1 uppercase tracking-wide">From Date</label>
           <input id="filterFrom" type="date" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
         </div>
 
-        <!-- To date -->
         <div>
           <label class="block text-xs font-medium text-gray-500 mb-1 uppercase tracking-wide">To Date</label>
           <input id="filterTo" type="date" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
@@ -63,7 +73,7 @@
     </div>
 
     <!-- Count line -->
-    <p id="countLine" class="text-sm text-gray-500 mb-3"></p>
+    <p id="countLine" class="text-sm text-gray-500 mb-3">Loading…</p>
 
     <!-- Table -->
     <div class="bg-white rounded-2xl shadow overflow-hidden">
@@ -79,24 +89,15 @@
             </tr>
           </thead>
           <tbody id="tableBody">
-            <!-- Rows injected by JS -->
           </tbody>
         </table>
       </div>
     </div>
   </main>
 
-  <script type="module">
-    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-    import { getFirestore, collection, onSnapshot, query, orderBy } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
-    import { firebaseConfig } from '../shared/firebase-config.js';
-
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-
+  <script>
     let allEntries = [];
 
-    // --- Helpers ---
     function formatDate(isoStr) {
       const d = new Date(isoStr);
       const dd = String(d.getDate()).padStart(2, '0');
@@ -179,7 +180,6 @@
       `).join('');
     }
 
-    // --- Export CSV ---
     document.getElementById('exportBtn').addEventListener('click', function () {
       const sorted = [...allEntries].sort((a, b) => new Date(b.date) - new Date(a.date));
       const filtered = applyFilters(sorted);
@@ -217,25 +217,25 @@
       URL.revokeObjectURL(url);
     });
 
-    // --- Bind filter events ---
     ['filterLocation', 'filterMinRating', 'filterFrom', 'filterTo'].forEach(id => {
       document.getElementById(id).addEventListener('change', render);
     });
 
-    // --- Real-time listener ---
-    const countLine = document.getElementById('countLine');
-    countLine.textContent = 'Loading…';
-
-    onSnapshot(
-      query(collection(db, 'feedbackEntries'), orderBy('date', 'desc')),
-      (snapshot) => {
-        allEntries = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        render();
-      },
-      (err) => {
-        countLine.textContent = 'Failed to load data: ' + err.message;
-      }
-    );
+    // Real-time listener from Firestore
+    db.collection('feedbackEntries')
+      .orderBy('date', 'desc')
+      .onSnapshot(
+        function(snapshot) {
+          allEntries = snapshot.docs.map(function(doc) {
+            return Object.assign({ id: doc.id }, doc.data());
+          });
+          render();
+        },
+        function(err) {
+          console.error('Firestore error:', err);
+          document.getElementById('countLine').textContent = 'Failed to load: ' + err.message;
+        }
+      );
   </script>
 </body>
 </html>
