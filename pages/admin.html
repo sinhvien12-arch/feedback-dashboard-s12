@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="../shared/styles.css" />
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <script>
     firebase.initializeApp({
       apiKey: "AIzaSyC2yVRWas8VKMi37jrhYvTHPHmu0FXQ-OI",
@@ -33,6 +34,51 @@
       >
         Export CSV
       </button>
+    </div>
+
+    <!-- Dashboard -->
+    <div class="mb-6">
+      <!-- KPI Cards -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+        <div class="bg-white rounded-2xl shadow p-4 text-center">
+          <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Total Feedbacks</p>
+          <p id="kpiTotal" class="text-3xl font-bold text-gray-800">–</p>
+        </div>
+        <div class="bg-white rounded-2xl shadow p-4 text-center">
+          <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Avg Rating</p>
+          <p id="kpiAvg" class="text-3xl font-bold text-gray-800">–</p>
+        </div>
+        <div class="bg-green-50 rounded-2xl shadow p-4 text-center">
+          <p class="text-xs font-medium text-green-700 uppercase tracking-wide mb-1">Positive</p>
+          <p id="kpiPositive" class="text-3xl font-bold text-green-700">–</p>
+        </div>
+        <div class="bg-red-50 rounded-2xl shadow p-4 text-center">
+          <p class="text-xs font-medium text-red-700 uppercase tracking-wide mb-1">Negative</p>
+          <p id="kpiNegative" class="text-3xl font-bold text-red-700">–</p>
+        </div>
+      </div>
+
+      <!-- Charts -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="bg-white rounded-2xl shadow p-4">
+          <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Rating Distribution</p>
+          <div style="position:relative;height:180px;">
+            <canvas id="chartRating"></canvas>
+          </div>
+        </div>
+        <div class="bg-white rounded-2xl shadow p-4">
+          <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">By Location</p>
+          <div style="position:relative;height:180px;">
+            <canvas id="chartLocation"></canvas>
+          </div>
+        </div>
+        <div class="bg-white rounded-2xl shadow p-4">
+          <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Sentiment</p>
+          <div style="position:relative;height:180px;">
+            <canvas id="chartSentiment"></canvas>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Filters -->
@@ -96,6 +142,118 @@
   </main>
 
   <script>
+    let ratingChart, locationChart, sentimentChart;
+
+    function initCharts() {
+      ratingChart = new Chart(
+        document.getElementById('chartRating').getContext('2d'),
+        {
+          type: 'bar',
+          data: {
+            labels: ['1 ★', '2 ★', '3 ★', '4 ★', '5 ★'],
+            datasets: [{
+              data: [0, 0, 0, 0, 0],
+              backgroundColor: ['#ef4444', '#f97316', '#eab308', '#84cc16', '#22c55e'],
+              borderRadius: 4,
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+          }
+        }
+      );
+
+      locationChart = new Chart(
+        document.getElementById('chartLocation').getContext('2d'),
+        {
+          type: 'bar',
+          data: {
+            labels: ['District 1', 'District 3', 'Thao Dien'],
+            datasets: [{
+              data: [0, 0, 0],
+              backgroundColor: '#6366f1',
+              borderRadius: 4,
+            }]
+          },
+          options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { x: { beginAtZero: true, ticks: { precision: 0 } } }
+          }
+        }
+      );
+
+      sentimentChart = new Chart(
+        document.getElementById('chartSentiment').getContext('2d'),
+        {
+          type: 'doughnut',
+          data: {
+            labels: ['Positive', 'Neutral', 'Negative'],
+            datasets: [{
+              data: [0, 0, 0],
+              backgroundColor: ['#22c55e', '#eab308', '#ef4444'],
+              borderWidth: 2,
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: 'bottom',
+                labels: { boxWidth: 12, font: { size: 11 } }
+              }
+            }
+          }
+        }
+      );
+    }
+
+    function updateKPICards(filtered) {
+      const total = filtered.length;
+      document.getElementById('kpiTotal').textContent = total;
+
+      if (total === 0) {
+        document.getElementById('kpiAvg').textContent = '–';
+        document.getElementById('kpiPositive').textContent = '0 (0%)';
+        document.getElementById('kpiNegative').textContent = '0 (0%)';
+        return;
+      }
+
+      const avg = (filtered.reduce(function(s, e) { return s + e.rating; }, 0) / total).toFixed(1);
+      document.getElementById('kpiAvg').textContent = avg + ' ★';
+
+      const positive = filtered.filter(function(e) { return e.rating >= 4; }).length;
+      const negative = filtered.filter(function(e) { return e.rating <= 2; }).length;
+      document.getElementById('kpiPositive').textContent = positive + ' (' + Math.round(positive / total * 100) + '%)';
+      document.getElementById('kpiNegative').textContent = negative + ' (' + Math.round(negative / total * 100) + '%)';
+    }
+
+    function updateCharts(filtered) {
+      ratingChart.data.datasets[0].data = [1, 2, 3, 4, 5].map(function(r) {
+        return filtered.filter(function(e) { return e.rating === r; }).length;
+      });
+      ratingChart.update();
+
+      var locs = ['District 1', 'District 3', 'Thao Dien'];
+      locationChart.data.datasets[0].data = locs.map(function(loc) {
+        return filtered.filter(function(e) { return e.location === loc; }).length;
+      });
+      locationChart.update();
+
+      sentimentChart.data.datasets[0].data = [
+        filtered.filter(function(e) { return e.rating >= 4; }).length,
+        filtered.filter(function(e) { return e.rating === 3; }).length,
+        filtered.filter(function(e) { return e.rating <= 2; }).length,
+      ];
+      sentimentChart.update();
+    }
+
     let allEntries = [];
 
     function formatDate(isoStr) {
@@ -153,6 +311,9 @@
     function render() {
       const sorted = [...allEntries].sort((a, b) => new Date(b.date) - new Date(a.date));
       const filtered = applyFilters(sorted);
+
+      updateKPICards(filtered);
+      updateCharts(filtered);
 
       const tbody = document.getElementById('tableBody');
       const countLine = document.getElementById('countLine');
@@ -236,6 +397,8 @@
           document.getElementById('countLine').textContent = 'Failed to load: ' + err.message;
         }
       );
+
+    initCharts();
   </script>
 </body>
 </html>
