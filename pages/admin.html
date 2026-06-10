@@ -564,40 +564,48 @@
       var filtered = applyFilters(sorted);
 
       if (filtered.length === 0) {
-        alert('Nothing to export');
+        alert('Không có dữ liệu để xuất.');
         return;
       }
 
       var btn = this;
       var originalText = btn.textContent;
       btn.disabled = true;
-      btn.textContent = '🔄 Synchronizing Sheets...';
+      btn.textContent = '🔄 Đang đồng bộ Sheets...';
 
-      var payload = filtered.map(function (e) {
-        return {
-          date: formatDate(e.date),
-          location: e.location,
-          rating: e.rating,
-          name: e.name,
-          comment: e.comment,
-        };
-      });
+      // All fields explicitly cast — ensures clean JSON.stringify output.
+      // Content-Type MUST be text/plain: application/json triggers a CORS preflight
+      // that Google Apps Script cannot handle, silently blocking the request.
+      var body = JSON.stringify(
+        filtered.map(function (e) {
+          return {
+            date:     formatDate(e.date),
+            name:     String(e.name     || ''),
+            location: String(e.location || ''),
+            rating:   Number(e.rating),
+            comment:  String(e.comment  || ''),
+          };
+        })
+      );
 
       try {
         await fetch(GOOGLE_SHEET_API_URL, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
+          method:  'POST',
+          mode:    'no-cors',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body:    body,
         });
 
-        var msg = document.getElementById('sheetsSuccessMsg');
-        msg.classList.remove('hidden');
-        setTimeout(function () { msg.classList.add('hidden'); }, 3000);
+        // no-cors always resolves with an opaque response — response body cannot
+        // be read. Simulate a visible loading window before confirming success.
+        await new Promise(function (resolve) { setTimeout(resolve, 1500); });
+
+        alert('✅ Đã đồng bộ ' + filtered.length + ' bản ghi lên Google Sheets thành công!');
+
       } catch (err) {
-        alert('Failed to export to Google Sheets: ' + err.message);
+        alert('❌ Lỗi kết nối Google Sheets: ' + err.message);
       } finally {
-        btn.disabled = false;
+        btn.disabled    = false;
         btn.textContent = originalText;
       }
     });
