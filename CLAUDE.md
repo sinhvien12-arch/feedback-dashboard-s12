@@ -33,3 +33,11 @@ shared/
 
 ## Skill Reference
 This project follows the `.claude/skills/SKILL.md` feedback-dashboard skill pattern.
+
+## Don't
+Create components >1000 lines
+
+Hardcode secrete or API keys or json or base64 string anywhere, even in settings.json
+
+# Do
+Always update the flow and log the changes as an md file in md-guide and create test cases for that module at the same time

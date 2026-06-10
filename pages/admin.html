@@ -7,6 +7,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="../shared/styles.css" />
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <script>
@@ -20,20 +21,84 @@
       measurementId: "G-LS927KG9CS",
     });
     const db = firebase.firestore();
+
+    const GOOGLE_SHEET_API_URL = "https://script.google.com/macros/s/AKfycbzX123456789_ExampleURL/exec";
   </script>
 </head>
 <body class="bg-gray-50 min-h-screen">
+
+  <!-- ===================== LOGIN OVERLAY ===================== -->
+  <div id="loginOverlay" class="fixed inset-0 z-50 bg-gray-50 flex items-center justify-center">
+    <div class="bg-white rounded-2xl shadow-xl p-10 max-w-sm w-full mx-4 text-center">
+
+      <div class="mb-6">
+        <div class="inline-flex items-center justify-center w-14 h-14 bg-indigo-100 rounded-2xl mb-4">
+          <svg class="w-7 h-7 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+          </svg>
+        </div>
+        <h1 class="text-xl font-bold text-gray-800">Feedback Dashboard</h1>
+        <p class="text-sm text-gray-500 mt-1">Admin Access &mdash; HSB University</p>
+      </div>
+
+      <button id="googleSignInBtn"
+        class="w-full flex items-center justify-center gap-3 border border-gray-300 rounded-xl px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="20" height="20">
+          <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+          <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+          <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+          <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+        </svg>
+        <span>Sign in with Google</span>
+      </button>
+
+      <div id="authError"
+        class="hidden mt-4 bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm text-left">
+        ⚠️ Access denied! Your email does not belong to HSB.
+      </div>
+
+      <p class="mt-5 text-xs text-gray-400">Only <span class="font-medium">@hsb.edu.vn</span> accounts are allowed.</p>
+    </div>
+  </div>
+  <!-- ==================== END LOGIN OVERLAY ==================== -->
+
   <script src="../shared/navbar.js"></script>
 
   <main class="max-w-5xl mx-auto mt-8 px-4 pb-16">
-    <div class="flex items-center justify-between mb-6">
-      <h1 class="text-2xl font-bold text-gray-800">Admin View</h1>
-      <button
-        id="exportBtn"
-        class="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
-      >
-        Export CSV
-      </button>
+
+    <!-- Page header -->
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-800">Admin View</h1>
+        <p id="userEmail" class="text-xs text-gray-400 mt-0.5"></p>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2">
+        <!-- Export CSV -->
+        <button id="exportBtn"
+          class="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors">
+          Export CSV
+        </button>
+
+        <!-- Export Google Sheets -->
+        <button id="exportSheetsBtn"
+          class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+          Export Google Sheets
+        </button>
+
+        <!-- Sign out -->
+        <button id="signOutBtn"
+          class="text-sm text-gray-500 hover:text-gray-700 border border-gray-300 px-3 py-2 rounded-lg transition-colors">
+          Sign out
+        </button>
+      </div>
+    </div>
+
+    <!-- Google Sheets success toast -->
+    <div id="sheetsSuccessMsg"
+      class="hidden mb-4 bg-green-50 border border-green-200 text-green-700 rounded-xl px-4 py-3 text-sm">
+      ✅ Đã đồng bộ lên Google Sheets thành công!
     </div>
 
     <!-- Dashboard -->
@@ -134,15 +199,85 @@
               <th class="px-4 py-3 text-left">Comment</th>
             </tr>
           </thead>
-          <tbody id="tableBody">
-          </tbody>
+          <tbody id="tableBody"></tbody>
         </table>
       </div>
     </div>
   </main>
 
   <script>
-    let ratingChart, locationChart, sentimentChart;
+    // ─── Auth setup ───────────────────────────────────────────────────────────
+    var provider = new firebase.auth.GoogleAuthProvider();
+    provider.setCustomParameters({ hd: 'hsb.edu.vn' });
+
+    var chartsReady = false;
+
+    firebase.auth().onAuthStateChanged(function (user) {
+      if (!user) {
+        document.getElementById('loginOverlay').classList.remove('hidden');
+        return;
+      }
+      if (!user.email.endsWith('@hsb.edu.vn')) {
+        document.getElementById('authError').classList.remove('hidden');
+        firebase.auth().signOut();
+        return;
+      }
+
+      // Valid @hsb.edu.vn user — hide overlay, show dashboard
+      document.getElementById('loginOverlay').classList.add('hidden');
+      document.getElementById('authError').classList.add('hidden');
+      document.getElementById('userEmail').textContent = user.email;
+
+      if (!chartsReady) {
+        chartsReady = true;
+        initCharts();
+        db.collection('feedbackEntries')
+          .orderBy('date', 'desc')
+          .onSnapshot(
+            function (snapshot) {
+              allEntries = snapshot.docs.map(function (doc) {
+                return Object.assign({ id: doc.id }, doc.data());
+              });
+              render();
+            },
+            function (err) {
+              console.error('Firestore error:', err);
+              document.getElementById('countLine').textContent = 'Failed to load: ' + err.message;
+            }
+          );
+      }
+    });
+
+    // Google Sign-In button
+    document.getElementById('googleSignInBtn').addEventListener('click', function () {
+      var btn = this;
+      var originalHTML = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<span>Đang đăng nhập…</span>';
+      document.getElementById('authError').classList.add('hidden');
+
+      firebase.auth().signInWithPopup(provider)
+        .catch(function (err) {
+          if (err.code !== 'auth/popup-closed-by-user') {
+            document.getElementById('authError').textContent = '⚠️ Đăng nhập thất bại. Vui lòng thử lại.';
+            document.getElementById('authError').classList.remove('hidden');
+          }
+        })
+        .finally(function () {
+          btn.disabled = false;
+          btn.innerHTML = originalHTML;
+        });
+    });
+
+    // Sign-out button
+    document.getElementById('signOutBtn').addEventListener('click', function () {
+      chartsReady = false;
+      allEntries = [];
+      firebase.auth().signOut();
+    });
+
+    // ─── Chart setup ──────────────────────────────────────────────────────────
+    var ratingChart, locationChart, sentimentChart;
 
     function initCharts() {
       ratingChart = new Chart(
@@ -214,8 +349,9 @@
       );
     }
 
+    // ─── KPI + chart updaters ─────────────────────────────────────────────────
     function updateKPICards(filtered) {
-      const total = filtered.length;
+      var total = filtered.length;
       document.getElementById('kpiTotal').textContent = total;
 
       if (total === 0) {
@@ -225,45 +361,46 @@
         return;
       }
 
-      const avg = (filtered.reduce(function(s, e) { return s + e.rating; }, 0) / total).toFixed(1);
+      var avg = (filtered.reduce(function (s, e) { return s + e.rating; }, 0) / total).toFixed(1);
       document.getElementById('kpiAvg').textContent = avg + ' ★';
 
-      const positive = filtered.filter(function(e) { return e.rating >= 4; }).length;
-      const negative = filtered.filter(function(e) { return e.rating <= 2; }).length;
+      var positive = filtered.filter(function (e) { return e.rating >= 4; }).length;
+      var negative = filtered.filter(function (e) { return e.rating <= 2; }).length;
       document.getElementById('kpiPositive').textContent = positive + ' (' + Math.round(positive / total * 100) + '%)';
       document.getElementById('kpiNegative').textContent = negative + ' (' + Math.round(negative / total * 100) + '%)';
     }
 
     function updateCharts(filtered) {
-      ratingChart.data.datasets[0].data = [1, 2, 3, 4, 5].map(function(r) {
-        return filtered.filter(function(e) { return e.rating === r; }).length;
+      ratingChart.data.datasets[0].data = [1, 2, 3, 4, 5].map(function (r) {
+        return filtered.filter(function (e) { return e.rating === r; }).length;
       });
       ratingChart.update();
 
       var locs = ['District 1', 'District 3', 'Thao Dien'];
-      locationChart.data.datasets[0].data = locs.map(function(loc) {
-        return filtered.filter(function(e) { return e.location === loc; }).length;
+      locationChart.data.datasets[0].data = locs.map(function (loc) {
+        return filtered.filter(function (e) { return e.location === loc; }).length;
       });
       locationChart.update();
 
       sentimentChart.data.datasets[0].data = [
-        filtered.filter(function(e) { return e.rating >= 4; }).length,
-        filtered.filter(function(e) { return e.rating === 3; }).length,
-        filtered.filter(function(e) { return e.rating <= 2; }).length,
+        filtered.filter(function (e) { return e.rating >= 4; }).length,
+        filtered.filter(function (e) { return e.rating === 3; }).length,
+        filtered.filter(function (e) { return e.rating <= 2; }).length,
       ];
       sentimentChart.update();
     }
 
-    let allEntries = [];
+    // ─── Data & helpers ───────────────────────────────────────────────────────
+    var allEntries = [];
 
     function formatDate(isoStr) {
-      const d = new Date(isoStr);
-      const dd = String(d.getDate()).padStart(2, '0');
-      const mm = String(d.getMonth() + 1).padStart(2, '0');
-      const yyyy = d.getFullYear();
-      const hh = String(d.getHours()).padStart(2, '0');
-      const min = String(d.getMinutes()).padStart(2, '0');
-      return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
+      var d = new Date(isoStr);
+      var dd = String(d.getDate()).padStart(2, '0');
+      var mm = String(d.getMonth() + 1).padStart(2, '0');
+      var yyyy = d.getFullYear();
+      var hh = String(d.getHours()).padStart(2, '0');
+      var min = String(d.getMinutes()).padStart(2, '0');
+      return dd + '/' + mm + '/' + yyyy + ' ' + hh + ':' + min;
     }
 
     function starsHtml(rating) {
@@ -285,91 +422,99 @@
     }
 
     function toLocalDateStr(isoStr) {
-      const d = new Date(isoStr);
-      const yyyy = d.getFullYear();
-      const mm = String(d.getMonth() + 1).padStart(2, '0');
-      const dd = String(d.getDate()).padStart(2, '0');
-      return `${yyyy}-${mm}-${dd}`;
+      var d = new Date(isoStr);
+      var yyyy = d.getFullYear();
+      var mm = String(d.getMonth() + 1).padStart(2, '0');
+      var dd = String(d.getDate()).padStart(2, '0');
+      return yyyy + '-' + mm + '-' + dd;
     }
 
     function applyFilters(entries) {
-      const loc = document.getElementById('filterLocation').value;
-      const minRating = parseInt(document.getElementById('filterMinRating').value, 10);
-      const fromVal = document.getElementById('filterFrom').value;
-      const toVal = document.getElementById('filterTo').value;
+      var loc = document.getElementById('filterLocation').value;
+      var minRating = parseInt(document.getElementById('filterMinRating').value, 10);
+      var fromVal = document.getElementById('filterFrom').value;
+      var toVal = document.getElementById('filterTo').value;
 
-      return entries.filter(e => {
+      return entries.filter(function (e) {
         if (loc && e.location !== loc) return false;
         if (e.rating < minRating) return false;
-        const entryLocalDate = toLocalDateStr(e.date);
+        var entryLocalDate = toLocalDateStr(e.date);
         if (fromVal && entryLocalDate < fromVal) return false;
         if (toVal && entryLocalDate > toVal) return false;
         return true;
       });
     }
 
+    // ─── Render ───────────────────────────────────────────────────────────────
     function render() {
-      const sorted = [...allEntries].sort((a, b) => new Date(b.date) - new Date(a.date));
-      const filtered = applyFilters(sorted);
+      var sorted = allEntries.slice().sort(function (a, b) {
+        return new Date(b.date) - new Date(a.date);
+      });
+      var filtered = applyFilters(sorted);
 
       updateKPICards(filtered);
       updateCharts(filtered);
 
-      const tbody = document.getElementById('tableBody');
-      const countLine = document.getElementById('countLine');
-
-      countLine.textContent = `Showing ${filtered.length} of ${sorted.length} feedbacks`;
+      var tbody = document.getElementById('tableBody');
+      var countLine = document.getElementById('countLine');
+      countLine.textContent = 'Showing ' + filtered.length + ' of ' + sorted.length + ' feedbacks';
 
       if (sorted.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-8 text-center text-gray-400 italic">No feedback yet</td></tr>`;
+        tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-8 text-center text-gray-400 italic">No feedback yet</td></tr>';
         return;
       }
-
       if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-8 text-center text-gray-400 italic">No feedback matches your filters</td></tr>`;
+        tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-8 text-center text-gray-400 italic">No feedback matches your filters</td></tr>';
         return;
       }
 
-      tbody.innerHTML = filtered.map(e => `
-        <tr class="${rowClass(e.rating)}">
-          <td class="px-4 py-3 whitespace-nowrap">${formatDate(e.date)}</td>
-          <td class="px-4 py-3 whitespace-nowrap">${e.location}</td>
-          <td class="px-4 py-3 whitespace-nowrap text-yellow-600 tracking-wider">${starsHtml(e.rating)}</td>
-          <td class="px-4 py-3 whitespace-nowrap">${escapeHtml(e.name)}</td>
-          <td class="px-4 py-3">${escapeHtml(e.comment)}</td>
-        </tr>
-      `).join('');
+      tbody.innerHTML = filtered.map(function (e) {
+        return '<tr class="' + rowClass(e.rating) + '">' +
+          '<td class="px-4 py-3 whitespace-nowrap">' + formatDate(e.date) + '</td>' +
+          '<td class="px-4 py-3 whitespace-nowrap">' + e.location + '</td>' +
+          '<td class="px-4 py-3 whitespace-nowrap text-yellow-600 tracking-wider">' + starsHtml(e.rating) + '</td>' +
+          '<td class="px-4 py-3 whitespace-nowrap">' + escapeHtml(e.name) + '</td>' +
+          '<td class="px-4 py-3">' + escapeHtml(e.comment) + '</td>' +
+          '</tr>';
+      }).join('');
     }
 
+    // ─── Export CSV ───────────────────────────────────────────────────────────
     document.getElementById('exportBtn').addEventListener('click', function () {
-      const sorted = [...allEntries].sort((a, b) => new Date(b.date) - new Date(a.date));
-      const filtered = applyFilters(sorted);
+      var sorted = allEntries.slice().sort(function (a, b) {
+        return new Date(b.date) - new Date(a.date);
+      });
+      var filtered = applyFilters(sorted);
 
       if (filtered.length === 0) {
         alert('Nothing to export');
         return;
       }
 
-      const header = ['Date', 'Location', 'Rating', 'Name', 'Comment'];
-      const rows = filtered.map(e => [
-        formatDate(e.date),
-        e.location,
-        e.rating,
-        e.name,
-        `"${e.comment.replace(/"/g, '""')}"`,
-      ]);
+      var header = ['Date', 'Location', 'Rating', 'Name', 'Comment'];
+      var rows = filtered.map(function (e) {
+        return [
+          formatDate(e.date),
+          e.location,
+          e.rating,
+          e.name,
+          '"' + e.comment.replace(/"/g, '""') + '"',
+        ];
+      });
 
-      const csvContent = '﻿' + [header, ...rows].map(r => r.join(',')).join('\r\n');
+      var csvContent = '﻿' + [header].concat(rows).map(function (r) {
+        return r.join(',');
+      }).join('\r\n');
 
-      const today = new Date();
-      const yyyy = today.getFullYear();
-      const mm = String(today.getMonth() + 1).padStart(2, '0');
-      const dd = String(today.getDate()).padStart(2, '0');
-      const filename = `feedback-export-${yyyy}-${mm}-${dd}.csv`;
+      var today = new Date();
+      var yyyy = today.getFullYear();
+      var mm = String(today.getMonth() + 1).padStart(2, '0');
+      var dd = String(today.getDate()).padStart(2, '0');
+      var filename = 'feedback-export-' + yyyy + '-' + mm + '-' + dd + '.csv';
 
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      var blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
       a.href = url;
       a.download = filename;
       document.body.appendChild(a);
@@ -378,27 +523,56 @@
       URL.revokeObjectURL(url);
     });
 
-    ['filterLocation', 'filterMinRating', 'filterFrom', 'filterTo'].forEach(id => {
-      document.getElementById(id).addEventListener('change', render);
+    // ─── Export Google Sheets ─────────────────────────────────────────────────
+    document.getElementById('exportSheetsBtn').addEventListener('click', async function () {
+      var sorted = allEntries.slice().sort(function (a, b) {
+        return new Date(b.date) - new Date(a.date);
+      });
+      var filtered = applyFilters(sorted);
+
+      if (filtered.length === 0) {
+        alert('Nothing to export');
+        return;
+      }
+
+      var btn = this;
+      var originalText = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = '🔄 Synchronizing Sheets...';
+
+      var payload = filtered.map(function (e) {
+        return {
+          date: formatDate(e.date),
+          location: e.location,
+          rating: e.rating,
+          name: e.name,
+          comment: e.comment,
+        };
+      });
+
+      try {
+        await fetch(GOOGLE_SHEET_API_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        var msg = document.getElementById('sheetsSuccessMsg');
+        msg.classList.remove('hidden');
+        setTimeout(function () { msg.classList.add('hidden'); }, 3000);
+      } catch (err) {
+        alert('Failed to export to Google Sheets: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = originalText;
+      }
     });
 
-    // Real-time listener from Firestore
-    db.collection('feedbackEntries')
-      .orderBy('date', 'desc')
-      .onSnapshot(
-        function(snapshot) {
-          allEntries = snapshot.docs.map(function(doc) {
-            return Object.assign({ id: doc.id }, doc.data());
-          });
-          render();
-        },
-        function(err) {
-          console.error('Firestore error:', err);
-          document.getElementById('countLine').textContent = 'Failed to load: ' + err.message;
-        }
-      );
-
-    initCharts();
+    // ─── Filter events ────────────────────────────────────────────────────────
+    ['filterLocation', 'filterMinRating', 'filterFrom', 'filterTo'].forEach(function (id) {
+      document.getElementById(id).addEventListener('change', render);
+    });
   </script>
 </body>
 </html>
